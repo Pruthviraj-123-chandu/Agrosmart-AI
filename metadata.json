@@ -1,0 +1,8 @@
+{
+  "name": "AgroVision Pro",
+  "description": "AgroVision Pro is a production-grade intelligent agricultural platform providing high-accuracy crop recommendations, soil analysis, and disease detection.",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

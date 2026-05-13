@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if false; // No blanket listing
+      allow create: if isOwner(userId) && isVerified();
+      allow update: if isOwner(userId) && isVerified() && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'location', 'farmingType']);
+    }
+
+    // Recommendations History
+    match /recommendations/{recId} {
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isVerified() && 
+                    request.resource.data.userId == request.auth.uid &&
+                    isValidRecommendation(request.resource.data);
+    }
+
+    function isValidRecommendation(data) {
+      return data.userId is string &&
+             data.type in ['crop', 'fertilizer', 'disease'] &&
+             data.timestamp is timestamp;
+    }
+  }
+}

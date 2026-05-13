@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with farming preferences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "location": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Recommendation": {
+      "title": "Crop & Fertilizer Recommendation",
+      "description": "History of AI-powered recommendations",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["crop", "fertilizer", "disease"] },
+        "inputData": { "type": "object" },
+        "output": { "type": "object" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Primary user profiles"
+    },
+    "/recommendations/{recId}": {
+      "schema": "Recommendation",
+      "description": "Shared history of all recommendations"
+    }
+  }
+}
