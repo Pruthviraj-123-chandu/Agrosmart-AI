@@ -85,17 +85,38 @@ export function CropPrediction() {
   };
 
   const [loadingStep, setLoadingStep] = useState(0);
+  const [progress, setProgress] = useState(0);
+
   React.useEffect(() => {
     let interval: any;
+    let progressInterval: any;
+
     if (loading) {
       setLoadingStep(0);
+      setProgress(0);
+      
       interval = setInterval(() => {
         setLoadingStep(prev => (prev + 1) % 4);
-      }, 3000);
+      }, 2500);
+
+      progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev < 30) return prev + 2;
+          if (prev < 60) return prev + 1;
+          if (prev < 90) return prev + 0.5;
+          if (prev < 98) return prev + 0.1;
+          return prev;
+        });
+      }, 100);
     } else {
       setLoadingStep(0);
+      setProgress(0);
     }
-    return () => clearInterval(interval);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(progressInterval);
+    };
   }, [loading]);
 
   const loadingMessages = [
@@ -207,22 +228,64 @@ export function CropPrediction() {
               <motion.div 
                 initial={{ opacity: 0 }} 
                 animate={{ opacity: 1 }}
-                className="h-full flex flex-col items-center justify-center text-center p-8 bg-green-50/50 rounded-[2.5rem]"
+                className="h-full flex flex-col items-center justify-center text-center p-8 bg-green-50/50 dark:bg-slate-900/50 rounded-[2.5rem] border border-green-100 dark:border-slate-800"
               >
                 <div className="relative mb-8">
-                  <div className="w-24 h-24 border-4 border-green-100 border-t-green-600 rounded-full animate-spin"></div>
-                  <Sprout className="w-10 h-10 text-green-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-bounce" />
+                  <motion.div 
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+                    className="w-32 h-32 border-4 border-dashed border-green-200 dark:border-green-900/50 rounded-full"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <motion.div
+                      animate={{ 
+                        scale: [1, 1.2, 1],
+                        rotate: [0, 5, -5, 0]
+                      }}
+                      transition={{ repeat: Infinity, duration: 2 }}
+                    >
+                      <Sprout className="w-12 h-12 text-green-600" />
+                    </motion.div>
+                  </div>
                 </div>
-                <h3 className="font-bold text-green-800">Deep AI Analysis</h3>
-                <motion.p 
-                  key={loadingStep}
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-sm text-green-600 mt-2 font-medium"
-                >
-                  {loadingMessages[loadingStep]}
-                </motion.p>
-                <p className="text-[10px] text-green-400 mt-8 uppercase tracking-widest font-bold">Please wait, optimization in progress</p>
+
+                <div className="w-full max-w-[240px] space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-end">
+                      <h3 className="font-bold text-green-800 dark:text-green-100 text-lg">AI Analysis</h3>
+                      <span className="text-[10px] font-black text-green-600 dark:text-green-400 tabular-nums">
+                        {Math.floor(progress)}%
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-green-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        className="h-full bg-green-600 rounded-full shadow-[0_0_10px_rgba(22,163,74,0.5)]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="h-12 flex items-center justify-center">
+                    <AnimatePresence mode="wait">
+                      <motion.p 
+                        key={loadingStep}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="text-sm text-green-700 dark:text-green-400 font-medium"
+                      >
+                        {loadingMessages[loadingStep]}
+                      </motion.p>
+                    </AnimatePresence>
+                  </div>
+
+                  <div className="pt-4">
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] font-bold animate-pulse">
+                      Processing Data Streams
+                    </p>
+                  </div>
+                </div>
               </motion.div>
             ) : (
               <motion.div 

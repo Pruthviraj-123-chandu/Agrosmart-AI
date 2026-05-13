@@ -3,9 +3,7 @@ import { motion } from 'motion/react';
 import { auth } from '../../lib/firebase';
 import { User, Mail, Calendar, MapPin, Award, Settings, Bell, Shield } from 'lucide-react';
 
-export function Profile({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
-  const user = auth.currentUser;
-
+export function Profile({ setActiveTab, user }: { setActiveTab: (tab: string) => void, user: any }) {
   if (!user) return null;
 
   return (

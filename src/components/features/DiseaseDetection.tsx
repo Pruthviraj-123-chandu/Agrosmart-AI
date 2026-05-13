@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   Trash2,
   Search,
-  ZoomIn
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import { detectDisease } from '../../lib/gemini';
 import { cn } from '../../lib/utils';
@@ -26,8 +27,16 @@ export function DiseaseDetection() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomScale, setZoomScale] = useState(1);
   const [showNotification, setShowNotification] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset zoom scale when opening/closing
+  React.useEffect(() => {
+    if (!isZoomed) {
+      setZoomScale(1);
+    }
+  }, [isZoomed]);
 
   const [loadingStep, setLoadingStep] = useState(0);
   React.useEffect(() => {
@@ -51,6 +60,25 @@ export function DiseaseDetection() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Real-time validation
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      if (!validTypes.includes(file.type)) {
+        setError('Please upload a valid image (JPEG, PNG, or WEBP).');
+        setImage(null);
+        setResult(null);
+        return;
+      }
+
+      if (file.size > maxSize) {
+        setError('Image size too large. Please upload an image smaller than 5MB.');
+        setImage(null);
+        setResult(null);
+        return;
+      }
+
+      setError(null);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImage(reader.result as string);
@@ -124,20 +152,62 @@ export function DiseaseDetection() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setIsZoomed(false)}
-            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 cursor-zoom-out"
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 overflow-hidden"
           >
-            <motion.img 
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.8 }}
-              src={image} 
-              className="max-w-full max-h-full rounded-2xl shadow-3xl object-contain" 
-              alt="Zoomed leaf" 
+            <div 
+              className="absolute inset-0 cursor-zoom-out" 
+              onClick={() => setIsZoomed(false)} 
             />
-            <button className="absolute top-8 right-8 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors">
-              <X className="w-8 h-8" />
-            </button>
+            
+            <div className="relative w-full h-full flex items-center justify-center pointer-events-none">
+              <motion.img 
+                drag
+                dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                dragElastic={0.1}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ 
+                  scale: zoomScale, 
+                  opacity: 1,
+                  cursor: zoomScale > 1 ? 'grab' : 'default'
+                }}
+                whileTap={{ cursor: zoomScale > 1 ? 'grabbing' : 'default' }}
+                src={image} 
+                className="max-w-[90%] max-h-[90%] rounded-2xl shadow-2xl object-contain pointer-events-auto select-none" 
+                alt="Zoomed leaf" 
+              />
+            </div>
+
+            {/* Controls */}
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4 p-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl z-[101]">
+              <button 
+                onClick={() => setZoomScale(prev => Math.max(1, prev - 0.5))}
+                className="p-3 hover:bg-white/10 rounded-xl text-white transition-colors"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-6 h-6" />
+              </button>
+              <div className="px-4 text-white font-mono font-bold w-16 text-center">
+                {Math.round(zoomScale * 100)}%
+              </div>
+              <button 
+                onClick={() => setZoomScale(prev => Math.min(5, prev + 0.5))}
+                className="p-3 hover:bg-white/10 rounded-xl text-white transition-colors text-green-400"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-6 h-6" />
+              </button>
+              <div className="w-px h-6 bg-white/20 mx-2" />
+              <button 
+                onClick={() => setIsZoomed(false)}
+                className="p-3 hover:bg-white/10 rounded-xl text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <p className="absolute top-10 left-1/2 -translate-x-1/2 text-white/40 text-[10px] uppercase tracking-widest font-bold">
+              Drag to pan • Pinch or use controls to zoom
+            </p>
           </motion.div>
         )}
       </AnimatePresence>

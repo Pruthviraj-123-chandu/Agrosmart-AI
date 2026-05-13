@@ -108,16 +108,12 @@ export function Layout({ children, activeTab, setActiveTab, user }: LayoutProps)
           </button>
 
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-semibold">{user.displayName || 'Farmer'}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{user.email}</p>
+            <p className="text-sm font-semibold">{user?.displayName || 'Farmer'}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
           </div>
-          <button 
-            onClick={() => auth.signOut()}
-            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-            title="Logout"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 font-bold overflow-hidden">
+            <img src={user?.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+          </div>
         </div>
       </header>
 

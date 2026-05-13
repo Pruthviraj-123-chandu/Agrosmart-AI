@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { auth } from './lib/firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import React, { useState } from 'react';
 import { Layout } from './components/layout/Layout';
 import { Dashboard } from './components/features/Dashboard';
 import { CropPrediction } from './components/features/CropPrediction';
@@ -8,7 +6,6 @@ import { FertilizerRecommendation } from './components/features/FertilizerRecomm
 import { DiseaseDetection } from './components/features/DiseaseDetection';
 import { ChatAssistant } from './components/features/ChatAssistant';
 import { CropGuide } from './components/features/CropGuide';
-import { LandingPage } from './components/features/LandingPage';
 import { Profile } from './components/features/Profile';
 import { Settings } from './components/features/Settings';
 import { AnimatePresence } from 'motion/react';
@@ -16,52 +13,38 @@ import { ThemeProvider } from './components/ThemeContext';
 import { SettingsProvider } from './components/SettingsContext';
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-green-50 dark:bg-slate-950">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600"></div>
-      </div>
-    );
-  }
+  // Generate a consistent mock user for the session
+  const mockUser = {
+    uid: 'guest-farmer',
+    displayName: 'Farmer Guest',
+    email: 'guest@agrovision.pro',
+    photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AgroGuest'
+  };
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard user={user} />;
+      case 'dashboard': return <Dashboard user={mockUser} />;
       case 'crop': return <CropPrediction />;
       case 'fertilizer': return <FertilizerRecommendation />;
       case 'disease': return <DiseaseDetection />;
       case 'guide': return <CropGuide />;
       case 'chat': return <ChatAssistant />;
-      case 'profile': return <Profile setActiveTab={setActiveTab} />;
+      case 'profile': return <Profile setActiveTab={setActiveTab} user={mockUser} />;
       case 'settings': return <Settings />;
-      default: return <Dashboard />;
+      default: return <Dashboard user={mockUser} />;
     }
   };
 
   return (
     <ThemeProvider>
       <SettingsProvider>
-        {!user ? (
-          <LandingPage />
-        ) : (
-          <Layout activeTab={activeTab} setActiveTab={setActiveTab} user={user}>
-            <AnimatePresence mode="wait">
-              {renderContent()}
-            </AnimatePresence>
-          </Layout>
-        )}
+        <Layout activeTab={activeTab} setActiveTab={setActiveTab} user={mockUser as any}>
+          <AnimatePresence mode="wait">
+            {renderContent()}
+          </AnimatePresence>
+        </Layout>
       </SettingsProvider>
     </ThemeProvider>
   );

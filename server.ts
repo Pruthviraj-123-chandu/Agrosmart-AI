@@ -138,10 +138,24 @@ app.post("/api/generate-image", async (req, res) => {
 app.post("/api/fertilizer-recommendation", async (req, res) => {
   try {
     const { soilParams, cropName } = req.body;
-    const prompt = `Act as a soil scientist. 
+    const prompt = `Act as an expert soil scientist and agronomist. 
       Soil Condition: ${soilParams}
       Target Crop: ${cropName}
-      Recommend the best fertilizer. Respond in JSON with: fertilizerName, applicationMethod, dosageInfo, reason.`;
+      
+      Recommend the best fertilizer solution (synthetic and organic alternatives). 
+      Provide detailed guidance on application, precautions, and expected benefits.
+      
+      Respond in JSON with:
+      - fertilizerName (string)
+      - applicationMethod (string)
+      - dosageInfo (string)
+      - reason (string)
+      - alternativeOrganic (string: organic alternative recommendation)
+      - bestApplicationTime (string: optimal time of day/growth stage)
+      - precautions (array of strings: safety and environmental warnings)
+      - expectedResults (string: what the farmer should see after application)
+      - soilImpact (string: how it affects soil health in the long run)
+      `;
 
     const result = await generateWithRetry(() => ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -155,8 +169,17 @@ app.post("/api/fertilizer-recommendation", async (req, res) => {
             applicationMethod: { type: Type.STRING },
             dosageInfo: { type: Type.STRING },
             reason: { type: Type.STRING },
+            alternativeOrganic: { type: Type.STRING },
+            bestApplicationTime: { type: Type.STRING },
+            precautions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            expectedResults: { type: Type.STRING },
+            soilImpact: { type: Type.STRING },
           },
-          required: ["fertilizerName", "applicationMethod", "dosageInfo", "reason"],
+          required: [
+            "fertilizerName", "applicationMethod", "dosageInfo", "reason", 
+            "alternativeOrganic", "bestApplicationTime", "precautions", 
+            "expectedResults", "soilImpact"
+          ],
         },
       },
     }));

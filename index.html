@@ -8,27 +8,40 @@
       // Forcefully suppress Vite WebSocket/HMR errors in the preview environment
       (function() {
         const isBenignError = (msg) => 
-          msg && (msg.includes('WebSocket') || msg.includes('vite') || msg.includes('HMR'));
+          msg && typeof msg === 'string' && (
+            msg.includes('WebSocket') || 
+            msg.includes('vite') || 
+            msg.includes('HMR') ||
+            msg.includes('hot-reload') ||
+            msg.includes('closed without opened')
+          );
 
         window.addEventListener('unhandledrejection', function(event) {
-          if (event.reason && isBenignError(String(event.reason.message || event.reason))) {
+          const msg = event.reason?.message || String(event.reason);
+          if (isBenignError(msg)) {
             event.stopImmediatePropagation();
             event.preventDefault();
           }
         }, true);
 
         window.addEventListener('error', function(event) {
-          if (isBenignError(event.message)) {
+          if (isBenignError(event.message) || isBenignError(event.error?.message)) {
             event.stopImmediatePropagation();
             event.preventDefault();
           }
         }, true);
 
-        // Also silencer console.error for these specific logs to keep the console clean
+        // Silent console errors/warnings for these specific logs
         const orgError = console.error;
+        const orgWarn = console.warn;
         console.error = function(...args) {
           if (args[0] && typeof args[0] === 'string' && isBenignError(args[0])) return;
+          if (args[0] && args[0].message && isBenignError(args[0].message)) return;
           orgError.apply(console, args);
+        };
+        console.warn = function(...args) {
+          if (args[0] && typeof args[0] === 'string' && isBenignError(args[0])) return;
+          orgWarn.apply(console, args);
         };
       })();
     </script>
