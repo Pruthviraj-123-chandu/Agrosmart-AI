@@ -37,11 +37,12 @@ const ai = new GoogleGenAI({
 });
 
 const MODELS_TO_TRY = [
-  "gemini-3-flash-preview",
-  "gemini-flash-latest",
-  "gemini-3.1-flash-lite",
   "gemini-2.0-flash",
-  "gemini-1.5-flash-8b-latest"
+  "gemini-2.0-flash-lite-preview-02-05",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b",
+  "gemini-2.0-pro-exp-02-05",
+  "gemini-1.5-pro"
 ];
 
 // Helper for retries and model fallback
@@ -177,7 +178,12 @@ app.post("/api/crop-recommendation", async (req, res) => {
       },
     }));
 
-    const parsed = JSON.parse(result.text || '{}');
+    let text = result.text || "";
+    if (!text && result.candidates?.[0]?.content?.parts?.[0]?.text) {
+      text = result.candidates[0].content.parts[0].text;
+    }
+
+    const parsed = JSON.parse(text || '{}');
     apiCache.set(cacheKey, parsed);
     res.json(parsed);
   } catch (error: any) {
@@ -196,9 +202,9 @@ app.post("/api/generate-image", async (req, res) => {
     
     const response = await generateWithRetry((model) => ai.models.generateContent({
       model: model, 
-      contents: {
+      contents: [{
         parts: [{ text: `Generate a high-quality agricultural image: ${prompt}` }],
-      },
+      }],
     }));
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
@@ -270,7 +276,12 @@ app.post("/api/fertilizer-recommendation", async (req, res) => {
       },
     }));
 
-    const parsed = JSON.parse(result.text || '{}');
+    let text = result.text || "";
+    if (!text && result.candidates?.[0]?.content?.parts?.[0]?.text) {
+      text = result.candidates[0].content.parts[0].text;
+    }
+
+    const parsed = JSON.parse(text || '{}');
     apiCache.set(cacheKey, parsed);
     res.json(parsed);
   } catch (error: any) {
@@ -325,7 +336,12 @@ app.post("/api/detect-disease", async (req, res) => {
       },
     }));
 
-    const parsed = JSON.parse(result.text || '{}');
+    let text = result.text || "";
+    if (!text && result.candidates?.[0]?.content?.parts?.[0]?.text) {
+      text = result.candidates[0].content.parts[0].text;
+    }
+
+    const parsed = JSON.parse(text || '{}');
     apiCache.set(cacheKey, parsed);
     res.json(parsed);
   } catch (error: any) {
@@ -375,7 +391,12 @@ app.post("/api/crop-requirements", async (req, res) => {
       },
     }));
 
-    const parsed = JSON.parse(result.text || '{}');
+    let text = result.text || "";
+    if (!text && result.candidates?.[0]?.content?.parts?.[0]?.text) {
+      text = result.candidates[0].content.parts[0].text;
+    }
+
+    const parsed = JSON.parse(text || '{}');
     apiCache.set(cacheKey, parsed);
     res.json(parsed);
   } catch (error: any) {
@@ -415,7 +436,12 @@ app.post("/api/chat", async (req, res) => {
       return chat.sendMessage({ message });
     });
     
-    const responseData = { text: result.text };
+    let text = result.text || "";
+    if (!text && result.candidates?.[0]?.content?.parts?.[0]?.text) {
+      text = result.candidates[0].content.parts[0].text;
+    }
+
+    const responseData = { text: text };
     if (isGeneric) apiCache.set(cacheKey, responseData);
     res.json(responseData);
 
@@ -461,6 +487,15 @@ async function startServer() {
     }
   });
 }
+
+// Global Error Handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Global Error Handled:", err);
+  res.status(err.status || 500).json({
+    error: err.message || "Internal Server Error",
+    code: err.code || "unknown"
+  });
+});
 
 // Only start server automatically if this is the main module and not running on Vercel
 if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {

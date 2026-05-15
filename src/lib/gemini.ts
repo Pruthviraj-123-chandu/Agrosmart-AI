@@ -1,4 +1,14 @@
 
+const safeJson = async (response: Response) => {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.error("Failed to parse JSON response:", text);
+    throw new Error(`Server returned invalid response: ${text.slice(0, 100)}${text.length > 100 ? '...' : ''}`);
+  }
+};
+
 export const getCropRecommendation = async (data: {
   n: number;
   p: number;
@@ -13,7 +23,7 @@ export const getCropRecommendation = async (data: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  return response.json();
+  return safeJson(response);
 };
 
 export const getFertilizerRecommendation = async (soilParams: string, cropName: string) => {
@@ -22,7 +32,7 @@ export const getFertilizerRecommendation = async (soilParams: string, cropName: 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ soilParams, cropName }),
   });
-  return response.json();
+  return safeJson(response);
 };
 
 export const detectDisease = async (base64Image: string) => {
@@ -31,7 +41,7 @@ export const detectDisease = async (base64Image: string) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ image: base64Image }),
   });
-  return response.json();
+  return safeJson(response);
 };
 
 export const agriculturalChat = async (history: { role: "user" | "model"; content: string }[], message: string, signal?: AbortSignal) => {
@@ -41,7 +51,7 @@ export const agriculturalChat = async (history: { role: "user" | "model"; conten
     body: JSON.stringify({ message, history }),
     signal
   });
-  const data = await response.json();
+  const data = await safeJson(response);
   if (data.error) return data;
   return data.text;
 };
@@ -52,6 +62,6 @@ export const getCropRequirements = async (cropName: string) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ cropName }),
   });
-  return response.json();
+  return safeJson(response);
 };
 
