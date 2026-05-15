@@ -50,7 +50,7 @@ export function CropGuide() {
       const result = await getCropRequirements(crop);
       if (result.error) {
         if (result.code === 'QUOTA_EXCEEDED') {
-           setError('AI database is busy. Please wait 1-2 minutes and try again.');
+           setError(result.error || 'AI service is currently at its free-tier limit. Please wait 1-2 minutes or use a billing-enabled API key.');
         } else {
            setError(result.error || 'Failed to fetch crop data.');
         }
@@ -58,9 +58,9 @@ export function CropGuide() {
         return;
       }
       setData(result);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError('Connection error. Failed to reach agronomy database.');
+      setError(err.message || 'Connection error. Failed to reach agronomy database.');
     } finally {
       setLoading(false);
     }

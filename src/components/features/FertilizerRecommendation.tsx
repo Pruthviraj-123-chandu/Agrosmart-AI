@@ -77,7 +77,7 @@ export function FertilizerRecommendation() {
       const res = await getFertilizerRecommendation(soilParams, cropName);
       if (res.error) {
         if (res.code === 'QUOTA_EXCEEDED') {
-          setError('AI service is busy. Please wait a minute and try again.');
+          setError(res.error || 'AI service is currently at its free-tier limit. Please wait 1-2 minutes or use a billing-enabled API key.');
         } else {
           setError(res.error || 'Failed to get recommendation');
         }

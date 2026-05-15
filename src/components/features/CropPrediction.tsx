@@ -42,7 +42,7 @@ export function CropPrediction() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       n: 90,
@@ -62,7 +62,7 @@ export function CropPrediction() {
       const res = await getCropRecommendation(data);
       if (res.error) {
         if (res.code === 'QUOTA_EXCEEDED') {
-          setError('AI service is currently at its free-tier limit. Please wait 1-2 minutes and try again. This helps manage high traffic.');
+          setError(res.error || 'AI service is currently at its free-tier limit. Please wait 1-2 minutes or use a billing-enabled API key.');
         } else {
           setError(res.error || 'Failed to fetch recommendation. Please try again.');
         }
@@ -126,6 +126,8 @@ export function CropPrediction() {
     "Finalizing crop recommendation..."
   ];
 
+  const phValue = watch('ph');
+
   const InputField = ({ label, name, icon: Icon, placeholder, min, max, unit }: any) => (
     <div className="space-y-2">
       <label className="text-sm font-bold text-black dark:text-slate-200 flex items-center gap-2">
@@ -179,7 +181,28 @@ export function CropPrediction() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <InputField label={t('phLevel')} name="ph" icon={Activity} min={0} max={14} unit="(0-14)" />
+              <div className="space-y-4">
+                <InputField label={t('phLevel')} name="ph" icon={Activity} min={0} max={14} unit="(0-14)" />
+                <div className="px-2">
+                  <div className="relative h-2 w-full bg-gradient-to-r from-red-500 via-orange-400 via-yellow-300 via-green-500 via-blue-400 via-purple-600 rounded-full shadow-inner overflow-visible">
+                    <motion.div 
+                      key="ph-indicator"
+                      initial={false}
+                      animate={{ 
+                        left: `${Math.min(Math.max(((phValue || 0) / 14) * 100, 0), 100)}%` 
+                      }}
+                      className="absolute top-1/2 -translate-y-1/2 -ml-2 w-4 h-4 bg-white border-2 border-slate-900 rounded-full shadow-lg z-10 cursor-pointer flex items-center justify-center group"
+                    >
+                      <div className="w-1.5 h-1.5 bg-slate-900 rounded-full group-hover:scale-150 transition-transform" />
+                    </motion.div>
+                  </div>
+                  <div className="flex justify-between mt-1 text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                    <span>{t('acidic') || 'Acidic'}</span>
+                    <span className="text-green-600/80">{t('neutral') || 'Neutral'}</span>
+                    <span>{t('alkaline') || 'Alkaline'}</span>
+                  </div>
+                </div>
+              </div>
               <InputField label={t('rainfall')} name="rainfall" icon={CloudRain} min={0} max={500} unit="mm" />
             </div>
 

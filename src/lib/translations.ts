@@ -55,6 +55,9 @@ export const translations: Record<Language, any> = {
     generateAiImage: 'Generate AI Photo',
     generating: 'Generating...',
     aiPhoto: 'AI Generated Photo',
+    acidic: 'Acidic',
+    neutral: 'Neutral',
+    alkaline: 'Alkaline',
   },
   hindi: {
     dashboard: 'डैशबोर्ड',
@@ -109,6 +112,9 @@ export const translations: Record<Language, any> = {
     generateAiImage: 'AI फोटो जनरेट करें',
     generating: 'जनरेट हो रहा है...',
     aiPhoto: 'AI द्वारा जनरेट की गई फोटो',
+    acidic: 'अम्लीय',
+    neutral: 'तटस्थ',
+    alkaline: 'क्षारीय',
   },
   kannada: {
     dashboard: 'ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',
@@ -163,6 +169,9 @@ export const translations: Record<Language, any> = {
     generateAiImage: 'AI ಫೋಟೋ ರಚಿಸಿ',
     generating: 'ರಚಿಸಲಾಗುತ್ತಿದೆ...',
     aiPhoto: 'AI ನಿಂದ ರಚಿಸಲಾದ ಫೋಟೋ',
+    acidic: 'ಆಮ್ಲೀಯ',
+    neutral: 'ತಟಸ್ಥ',
+    alkaline: 'ಕ್ಷಾರೀಯ',
   },
   marathi: {
     dashboard: 'डॅशबोर्ड',
@@ -217,5 +226,8 @@ export const translations: Record<Language, any> = {
     generateAiImage: 'AI फोटो तयार करा',
     generating: 'तयार होत आहे...',
     aiPhoto: 'AI द्वारे तयार केलेला फोटो',
+    acidic: 'आम्लधर्मी',
+    neutral: 'तटस्थ',
+    alkaline: 'विम्लधर्मी',
   }
 };

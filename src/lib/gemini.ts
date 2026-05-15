@@ -42,6 +42,7 @@ export const agriculturalChat = async (history: { role: "user" | "model"; conten
     signal
   });
   const data = await response.json();
+  if (data.error) return data;
   return data.text;
 };
 

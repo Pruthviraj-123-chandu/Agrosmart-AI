@@ -44,7 +44,17 @@ export function Dashboard({ user }: { user?: any }) {
     
     if (navigator.geolocation) {
       setLoadingLocation(true);
+      
+      // Safety timeout for geolocation
+      const timeoutId = setTimeout(() => {
+        if (loadingLocation) {
+          setLoadingLocation(false);
+          setWeather(prev => ({ ...prev, city: 'Default Location (Timeout)' }));
+        }
+      }, 8000);
+
       navigator.geolocation.getCurrentPosition(async (position) => {
+        clearTimeout(timeoutId);
         const { latitude, longitude } = position.coords;
         
         try {
@@ -61,7 +71,6 @@ export function Dashboard({ user }: { user?: any }) {
               });
             }
           } else {
-            console.warn("VITE_OPENWEATHER_API_KEY is not set.");
             setWeather(prev => ({ 
               ...prev, 
               city: `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°` 
@@ -73,9 +82,27 @@ export function Dashboard({ user }: { user?: any }) {
           setLoadingLocation(false);
         }
       }, (error) => {
+        clearTimeout(timeoutId);
         console.error("Geolocation error:", error.message || error);
+        let statusMsg = "Location Blocked";
+        let detailedMsg = "Please click the 'Allow' button in your browser popup.";
+        
+        if (error.message?.includes('permissions policy') || error.code === 1) {
+          statusMsg = "Access Denied";
+          detailedMsg = "Permissions policy blocked geolocation. Please allow location access or open the app in a new tab.";
+          console.warn("Geolocation blocked by permissions policy. Ensure 'geolocation' is in metadata.json and user allowed access.");
+        } else if (error.code === 3) {
+          statusMsg = "Timeout";
+          detailedMsg = "Location request timed out. Please try refreshing.";
+        }
+
+        setWeather(prev => ({ 
+          ...prev, 
+          condition: statusMsg,
+          city: detailedMsg
+        }));
         setLoadingLocation(false);
-      });
+      }, { timeout: 15000, enableHighAccuracy: false }); // Increased timeout and disabled high accuracy for better reliability
     }
   };
 

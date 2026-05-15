@@ -13,7 +13,9 @@
             msg.includes('vite') || 
             msg.includes('HMR') ||
             msg.includes('hot-reload') ||
-            msg.includes('closed without opened')
+            msg.includes('closed without opened') ||
+            msg.includes('connection failed') ||
+            msg.includes('failed to connect')
           );
 
         window.addEventListener('unhandledrejection', function(event) {

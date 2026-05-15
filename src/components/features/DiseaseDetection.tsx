@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Bug, 
@@ -14,21 +14,99 @@ import {
   Trash2,
   Search,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  Maximize2,
+  Minimize2,
+  Info
 } from 'lucide-react';
 import { detectDisease } from '../../lib/gemini';
 import { cn } from '../../lib/utils';
 import { useSettings } from '../SettingsContext';
 
+interface Symptom {
+  text: string;
+  confidence: number;
+  box: [number, number, number, number]; // [ymin, xmin, ymax, xmax]
+}
+
+interface DetectionResult {
+  diseaseName: string;
+  symptoms: Symptom[];
+  treatment: string;
+  urgency: 'low' | 'medium' | 'high';
+}
+
+function DetectionMarker({ box, label, active, onHover }: { 
+  box: [number, number, number, number], 
+  label: string, 
+  active: boolean,
+  onHover: (hovered: boolean) => void 
+}) {
+  const [ymin, xmin, ymax, xmax] = box;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ 
+        opacity: active ? 1 : 0.6,
+        scale: active ? 1.05 : 1,
+        zIndex: active ? 20 : 10,
+        boxShadow: active ? "0 0 20px rgba(34, 197, 94, 0.4)" : "0 0 0px transparent"
+      }}
+      whileHover={{ scale: 1.1 }}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
+      style={{
+        position: 'absolute',
+        top: `${ymin / 10}%`,
+        left: `${xmin / 10}%`,
+        width: `${(xmax - xmin) / 10}%`,
+        height: `${(ymax - ymin) / 10}%`,
+        border: '3px solid',
+        borderColor: active ? '#22c55e' : '#ef4444',
+        backgroundColor: active ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.05)',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        pointerEvents: 'auto'
+      }}
+      className="group"
+    >
+      {/* Pulse effect */}
+      {active && (
+        <motion.div 
+          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="absolute inset-0 border-4 border-green-400 rounded-lg"
+        />
+      )}
+      
+      <AnimatePresence>
+        {active && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 5, scale: 0.9 }}
+            className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-950 text-white text-[11px] px-3 py-1.5 rounded-full shadow-2xl font-black border border-white/10 flex items-center gap-2 pointer-events-none"
+          >
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            {label}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
 export function DiseaseDetection() {
   const { t, settings } = useSettings();
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<DetectionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const [showNotification, setShowNotification] = useState(false);
+  const [hoveredSymptomIndex, setHoveredSymptomIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Reset zoom scale when opening/closing
@@ -92,12 +170,13 @@ export function DiseaseDetection() {
     setLoading(true);
     setError(null);
     try {
-      const base64 = image.split(',')[1];
+      const base64 = image.includes(',') ? image.split(',')[1] : image;
+      if (!base64) throw new Error("Invalid image format.");
       const res = await detectDisease(base64);
       
       if (res.error) {
         if (res.code === 'QUOTA_EXCEEDED') {
-          setError('AI service is currently at its free-tier limit. Please wait 1-2 minutes and try again.');
+          setError(res.error || 'AI service is currently at its free-tier limit. Please wait 1-2 minutes or use a billing-enabled API key.');
         } else {
           setError(res.error || 'Detection failed. Please try again.');
         }
@@ -160,21 +239,41 @@ export function DiseaseDetection() {
             />
             
             <div className="relative w-full h-full flex items-center justify-center pointer-events-none">
-              <motion.img 
-                drag
-                dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
-                dragElastic={0.1}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ 
-                  scale: zoomScale, 
-                  opacity: 1,
-                  cursor: zoomScale > 1 ? 'grab' : 'default'
-                }}
-                whileTap={{ cursor: zoomScale > 1 ? 'grabbing' : 'default' }}
-                src={image} 
-                className="max-w-[90%] max-h-[90%] rounded-2xl shadow-2xl object-contain pointer-events-auto select-none" 
-                alt="Zoomed leaf" 
-              />
+              <div className="relative pointer-events-auto">
+                <motion.img 
+                  drag
+                  dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                  dragElastic={0.1}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ 
+                    scale: zoomScale, 
+                    opacity: 1,
+                    cursor: zoomScale > 1 ? 'grab' : 'default'
+                  }}
+                  whileTap={{ cursor: zoomScale > 1 ? 'grabbing' : 'default' }}
+                  src={image} 
+                  className="max-w-[90vw] max-h-[90vh] rounded-2xl shadow-2xl object-contain select-none" 
+                  alt="Zoomed leaf" 
+                />
+                
+                {/* Markers Overlay in Zoom */}
+                {result?.symptoms && (
+                  <motion.div 
+                    animate={{ scale: zoomScale }}
+                    className="absolute inset-0 pointer-events-none"
+                  >
+                    {result.symptoms.map((sym, i) => sym.box && (
+                      <DetectionMarker 
+                        key={i} 
+                        box={sym.box} 
+                        label={sym.text} 
+                        active={hoveredSymptomIndex === i || hoveredSymptomIndex === null}
+                        onHover={(h) => setHoveredSymptomIndex(h ? i : null)}
+                      />
+                    ))}
+                  </motion.div>
+                )}
+              </div>
             </div>
 
             {/* Controls */}
@@ -228,23 +327,60 @@ export function DiseaseDetection() {
              onClick={() => !image && fileInputRef.current?.click()}
           >
             {image ? (
-              <>
+              <div className="relative w-full h-full group overflow-hidden">
                 <img src={image} className="w-full h-full object-cover" alt="Uploaded leaf" />
-                <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px] opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                
+                {/* Scanning Beam Animation */}
+                {loading && (
+                  <motion.div 
+                    initial={{ top: "-10%" }}
+                    animate={{ top: "110%" }}
+                    transition={{ 
+                      repeat: Infinity, 
+                      duration: 2, 
+                      ease: "linear" 
+                    }}
+                    className="absolute inset-x-0 h-1 bg-green-500 shadow-[0_0_15px_#22c55e,0_0_30px_#22c55e] z-10"
+                  />
+                )}
+
+                <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 z-20">
                   <button 
                     onClick={(e) => { e.stopPropagation(); setIsZoomed(true); }}
-                    className="p-3 bg-white/20 backdrop-blur-md rounded-2xl text-white hover:bg-white/40 transition-colors"
+                    className="p-3 bg-white/20 backdrop-blur-md rounded-2xl text-white hover:bg-white/40 transition-all scale-90 group-hover:scale-100"
                   >
-                    <ZoomIn className="w-6 h-6" />
+                    <Maximize2 className="w-6 h-6" />
                   </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); setImage(null); setResult(null); }}
-                    className="p-3 bg-white/20 backdrop-blur-md rounded-2xl text-white hover:bg-red-500 transition-colors"
+                    className="p-3 bg-white/20 backdrop-blur-md rounded-2xl text-white hover:bg-red-500 transition-all scale-90 group-hover:scale-100"
                   >
                     <Trash2 className="w-6 h-6" />
                   </button>
                 </div>
-              </>
+
+                {result && (
+                  <div className="absolute top-4 right-4 p-2 bg-slate-900/80 backdrop-blur-md rounded-xl text-white text-[10px] font-bold flex items-center gap-2 border border-white/10 z-30">
+                    <Info className="w-3 h-3 text-green-400" />
+                    {result.symptoms.length} Symptoms Detected
+                  </div>
+                )}
+
+                {/* Markers Overlay - Moved to top for interactivity */}
+                {result?.symptoms && !loading && (
+                  <div className="absolute inset-0 pointer-events-none z-40">
+                    {result.symptoms.map((sym, i) => sym.box && (
+                      <DetectionMarker 
+                        key={i} 
+                        box={sym.box} 
+                        label={sym.text} 
+                        active={hoveredSymptomIndex === i}
+                        onHover={(h) => setHoveredSymptomIndex(h ? i : null)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex flex-col items-center gap-4 p-8">
                 <div className="p-6 bg-green-50 dark:bg-green-950/30 rounded-full">
@@ -339,25 +475,45 @@ export function DiseaseDetection() {
                animate={{ opacity: 1, x: 0 }}
                className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-xl border border-green-100 dark:border-slate-800 space-y-8"
             >
-               <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+                  <div className="flex items-center gap-4">
                     <div className={cn(
-                      "p-3 rounded-2xl",
-                      result.urgency === 'high' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'
+                      "p-4 rounded-[2rem] shadow-lg",
+                      result.urgency === 'high' ? "bg-red-500 text-white" :
+                      result.urgency === 'medium' ? "bg-amber-500 text-white" :
+                      "bg-green-500 text-white"
                     )}>
-                       <AlertTriangle className="w-6 h-6" />
+                      <Bug className="w-8 h-8" />
                     </div>
                     <div>
-                       <h3 className="font-bold text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 leading-none mb-1">{t('detectedIssue')}</h3>
-                       <p className="text-xl font-black text-slate-900 dark:text-white">{result.diseaseName}</p>
+                      <h3 className="font-bold text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 leading-none mb-1">{t('detectedIssue')}</h3>
+                      <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{result.diseaseName}</h2>
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="flex gap-1">
+                          {[1, 2, 3].map(i => (
+                            <div 
+                              key={i} 
+                              className={cn(
+                                "w-4 h-1.5 rounded-full",
+                                i <= (result.urgency === 'high' ? 3 : result.urgency === 'medium' ? 2 : 1)
+                                  ? (result.urgency === 'high' ? "bg-red-500" : result.urgency === 'medium' ? "bg-amber-500" : "bg-green-500")
+                                  : "bg-slate-200 dark:bg-slate-800"
+                              )} 
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                          {result.urgency} {t('urgency')}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div className={cn(
-                    "px-4 py-1.5 rounded-full text-[10px] font-bold uppercase",
-                    result.urgency === 'high' ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'
-                  )}>
-                    {result.urgency} {t('urgency')}
-                  </div>
+                  <button 
+                    onClick={() => { setImage(null); setResult(null); }}
+                    className="p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 transition-all active:scale-95"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                </div>
 
                <div className="space-y-4">
@@ -365,19 +521,55 @@ export function DiseaseDetection() {
                     <Activity className="w-4 h-4 text-green-600" />
                     {t('symptoms')}
                   </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {result.symptoms?.map((sym: string, i: number) => (
+                  <div className="grid grid-cols-1 gap-3">
+                    {result.symptoms?.map((sym, i) => (
                       <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ 
+                          opacity: 1, 
+                          x: 0,
+                          scale: hoveredSymptomIndex === i ? 1.02 : 1
+                        }}
                         transition={{ delay: i * 0.1 }}
+                        onMouseEnter={() => setHoveredSymptomIndex(i)}
+                        onMouseLeave={() => setHoveredSymptomIndex(null)}
                         key={i} 
-                        className="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/50 group hover:border-green-200 dark:hover:border-green-900 transition-colors"
+                        className={cn(
+                          "flex items-start gap-4 p-5 rounded-3xl border transition-all cursor-pointer group relative overflow-hidden",
+                          hoveredSymptomIndex === i 
+                            ? "bg-green-50 dark:bg-green-950/40 border-green-500/30 dark:border-green-500/30 shadow-xl shadow-green-500/5 ring-1 ring-green-500/20" 
+                            : "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700/50 hover:border-green-200 dark:hover:border-green-900"
+                        )}
                       >
-                         <div className="mt-0.5 flex-shrink-0 p-1 bg-white dark:bg-slate-700 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                         {/* Highlight Indicator */}
+                         {hoveredSymptomIndex === i && (
+                           <motion.div 
+                             layoutId="symptom-highlight"
+                             className="absolute left-0 top-0 bottom-0 w-1 bg-green-500"
+                           />
+                         )}
+                         
+                         <div className={cn(
+                           "mt-0.5 flex-shrink-0 p-1.5 rounded-xl shadow-sm transition-all duration-300",
+                           hoveredSymptomIndex === i ? "bg-green-600 text-white scale-110 rotate-12" : "bg-white dark:bg-slate-700 text-green-600"
+                         )}>
+                            <CheckCircle2 className="w-4 h-4" />
                          </div>
-                         <span className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-tight">{sym}</span>
+                         <div className="flex-1">
+                           <div className="flex items-center justify-between mb-0.5">
+                             <span className="text-sm text-slate-900 dark:text-white font-bold leading-tight">{sym.text}</span>
+                             {sym.confidence && (
+                               <span className="text-[10px] font-mono text-slate-400">{Math.round(sym.confidence * 100)}%</span>
+                             )}
+                           </div>
+                           <div className="w-full h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                             <motion.div 
+                               initial={{ width: 0 }}
+                               animate={{ width: `${(sym.confidence || 0.8) * 100}%` }}
+                               className="h-full bg-green-500"
+                             />
+                           </div>
+                         </div>
                       </motion.div>
                     ))}
                   </div>
