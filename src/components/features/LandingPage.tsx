@@ -1,26 +1,67 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Leaf, ShieldCheck, Zap, Globe, ArrowRight, Sun, Moon } from 'lucide-react';
-import { signInWithGoogle } from '../../lib/firebase';
+import { signInWithGoogle, loginWithEmail, signupWithEmail, resetPassword } from '../../lib/firebase';
 import { useTheme } from '../ThemeContext';
+import { Mail, Lock, UserPlus, LogIn, ChevronRight } from 'lucide-react';
 
 export function LandingPage() {
   const { theme, toggleTheme } = useTheme();
   const [error, setError] = React.useState<string | null>(null);
+  const [showEmailForm, setShowEmailForm] = React.useState(false);
+  const [isSignUp, setIsSignUp] = React.useState(false);
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
 
   const handleSignIn = async () => {
     try {
+      setLoading(true);
       setError(null);
       await signInWithGoogle();
     } catch (err: any) {
       console.error('Sign in error:', err);
       if (err.code === 'auth/popup-closed-by-user') {
-        setError('Sign-in window was closed. Please try again.');
+        setError('Sign-in window was closed. If popups are blocked, try opening the app in a new tab.');
       } else if (err.code === 'auth/cancelled-by-user') {
         setError('Sign-in was cancelled.');
       } else {
-        setError('Failed to sign in with Google. Please check your connection.');
+        setError(err.message || 'Failed to sign in with Google.');
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      if (isSignUp) {
+        await signupWithEmail(email, password);
+      } else {
+        await loginWithEmail(email, password);
+      }
+    } catch (err: any) {
+      console.error('Email auth error:', err);
+      if (err.code === 'auth/user-not-found') {
+        setError('No user found with this email. Try signing up!');
+      } else if (err.code === 'auth/wrong-password') {
+        setError('Incorrect password.');
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError('This email is already registered. Try signing in.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password should be at least 6 characters.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('Email/Password auth is not enabled. Please enable it in the Firebase Console.');
+      } else {
+        setError(err.message || 'Authentication failed.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -45,10 +86,19 @@ export function LandingPage() {
             {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
           <button 
-            onClick={handleSignIn}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-full font-medium shadow-lg shadow-green-200 dark:shadow-none transition-all active:scale-95"
+            onClick={() => setShowEmailForm(true)}
+            className="text-green-700 dark:text-green-400 font-medium hover:underline hidden sm:block"
           >
-            Sign In with Google
+            Sign In
+          </button>
+          <button 
+            onClick={handleSignIn}
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-full font-medium shadow-lg shadow-green-200 dark:shadow-none transition-all active:scale-95 flex items-center gap-2"
+          >
+            <div className="w-4 h-4 bg-white rounded-full flex items-center justify-center p-0.5">
+               <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" />
+            </div>
+            Sign In
           </button>
         </div>
       </nav>
@@ -65,40 +115,137 @@ export function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               className="mb-6 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-2xl text-red-600 dark:text-red-400 text-sm font-medium flex items-center justify-between"
             >
-              <span>{error}</span>
-              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">×</button>
+              <span className="flex-1">{error}</span>
+              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 ml-2">×</button>
             </motion.div>
           )}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-slate-900/80 border border-green-100 dark:border-slate-800 rounded-full shadow-sm mb-6">
-            <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-medium text-green-800 dark:text-green-400 italic">Advanced Agriculture Support</span>
-          </div>
-          <h1 className="text-5xl lg:text-7xl font-bold text-slate-900 dark:text-white leading-tight mb-6">
-            The Smart Way to <span className="text-green-600 dark:text-green-500">Farmer</span> Better.
-          </h1>
-          <p className="text-lg text-slate-600 dark:text-slate-400 mb-8 max-w-lg leading-relaxed">
-            Maximize your crop yield and soil health with our AI-powered agricultural intelligence system. 
-            Real-time recommendations, disease detection, and expert farming advice at your fingertips.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <button 
-              onClick={handleSignIn}
-              className="flex items-center justify-center gap-2 bg-green-700 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-green-800 transition-all shadow-xl shadow-green-100 group"
-            >
-              Get Started Now
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
-            <div className="flex items-center gap-4 px-6">
-              <div className="flex -space-x-3">
-                {[1,2,3].map(i => (
-                  <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-green-100 flex items-center justify-center overflow-hidden">
-                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=farmer${i}`} alt="User" />
-                  </div>
-                ))}
+
+          {!showEmailForm ? (
+            <>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-slate-900/80 border border-green-100 dark:border-slate-800 rounded-full shadow-sm mb-6">
+                <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-sm font-medium text-green-800 dark:text-green-400 italic">Advanced Agriculture Support</span>
               </div>
-              <p className="text-sm text-slate-500 font-medium">Trusted by 10,000+ Farmers</p>
-            </div>
-          </div>
+              <h1 className="text-5xl lg:text-7xl font-bold text-slate-900 dark:text-white leading-tight mb-6">
+                The Smart Way to <span className="text-green-600 dark:text-green-500">Farmer</span> Better.
+              </h1>
+              <p className="text-lg text-slate-600 dark:text-slate-400 mb-8 max-w-lg leading-relaxed">
+                Maximize your crop yield and soil health with our AI-powered agricultural intelligence system. 
+                Real-time recommendations, disease detection, and expert farming advice at your fingertips.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button 
+                  onClick={() => setShowEmailForm(true)}
+                  className="flex items-center justify-center gap-2 bg-green-700 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-green-800 transition-all shadow-xl shadow-green-100 group"
+                >
+                  Get Started Now
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+                <div className="flex items-center gap-4 px-6">
+                  <div className="flex -space-x-3">
+                    {[1,2,3].map(i => (
+                      <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-green-100 flex items-center justify-center overflow-hidden">
+                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=farmer${i}`} alt="User" />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-slate-500 font-medium">Trusted by 10,000+ Farmers</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-green-100 dark:border-slate-800 max-w-md w-full"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-2xl font-bold dark:text-white">{isSignUp ? 'Create Account' : 'Welcome Back'}</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{isSignUp ? 'Join our community of smart farmers' : 'Access your agricultural dashboard'}</p>
+                </div>
+                <button onClick={() => setShowEmailForm(false)} className="text-slate-400 hover:text-slate-600">×</button>
+              </div>
+
+              <form onSubmit={handleEmailAuth} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400 ml-1">Email Address</label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input 
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="farmer@agrovision.pro"
+                      className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 py-4 pl-12 pr-4 rounded-2xl focus:ring-2 focus:ring-green-500 outline-none transition-all dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400 ml-1">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input 
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 py-4 pl-12 pr-4 rounded-2xl focus:ring-2 focus:ring-green-500 outline-none transition-all dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                {!isSignUp && (
+                  <button 
+                    type="button"
+                    onClick={async () => {
+                      if (!email) { setError('Enter your email first'); return; }
+                      try { await resetPassword(email); setError('Password reset email sent!'); } catch (err: any) { setError(err.message); }
+                    }}
+                    className="text-xs text-green-600 hover:underline font-medium ml-1"
+                  >
+                    Forgot Password?
+                  </button>
+                )}
+
+                <button 
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-4 rounded-2xl font-bold transition-all shadow-lg shadow-green-100 dark:shadow-none flex items-center justify-center gap-2 group"
+                >
+                  {loading ? 'Processing...' : isSignUp ? 'Sign Up Now' : 'Sign In'}
+                  <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </form>
+
+              <div className="relative my-8">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100 dark:border-slate-800"></div></div>
+                <div className="relative flex justify-center text-xs uppercase tracking-widest"><span className="bg-white dark:bg-slate-900 px-4 text-slate-400">Or continue with</span></div>
+              </div>
+
+              <button 
+                onClick={handleSignIn}
+                disabled={loading}
+                className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-white py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3"
+              >
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="" />
+                Sign in with Google
+              </button>
+
+              <p className="mt-8 text-center text-sm text-slate-500">
+                {isSignUp ? 'Already have an account?' : 'Don\'t have an account?'}
+                <button 
+                  onClick={() => setIsSignUp(!isSignUp)}
+                  className="ml-2 font-bold text-green-600 hover:underline"
+                >
+                  {isSignUp ? 'Sign In' : 'Sign Up'}
+                </button>
+              </p>
+            </motion.div>
+          )}
         </motion.div>
 
         <motion.div
