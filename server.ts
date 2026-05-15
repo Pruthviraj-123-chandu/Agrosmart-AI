@@ -37,12 +37,10 @@ const ai = new GoogleGenAI({
 });
 
 const MODELS_TO_TRY = [
+  "gemini-3-flash-preview",
   "gemini-2.0-flash",
-  "gemini-2.0-flash-lite-preview-02-05",
-  "gemini-1.5-flash",
-  "gemini-1.5-flash-8b",
-  "gemini-2.0-pro-exp-02-05",
-  "gemini-1.5-pro"
+  "gemini-flash-latest",
+  "gemini-3.1-flash-lite",
 ];
 
 // Helper for retries and model fallback
@@ -63,51 +61,63 @@ async function generateWithRetry(fn: (model: string) => Promise<any>, retries = 
       return result;
     } catch (error: any) {
       lastError = error;
-      const errorBody = error.message?.toLowerCase() || '';
-      console.error(`Attempt ${i + 1} with ${currentModel} failed:`, errorBody);
+      
+      // Extract error details safely
+      let errorBody = "";
+      let errorStatus = error.status || 0;
+      
+      if (error.message) {
+        errorBody += error.message.toLowerCase();
+      }
+      try {
+        errorBody += " " + JSON.stringify(error).toLowerCase();
+      } catch (e) {}
 
-      const is429 = error.status === 429 || errorBody.includes('429') || errorBody.includes('quota') || errorBody.includes('resource_exhausted');
-      const is404 = error.status === 404 || errorBody.includes('404') || errorBody.includes('not found') || errorBody.includes('not supported');
-      const is403 = error.status === 403 || errorBody.includes('403') || errorBody.includes('permission') || errorBody.includes('unregistered');
-      const isExpired = errorBody.includes('expired') || errorBody.includes('invalid') || errorBody.includes('bad key');
-      const isUnsupported = (error.status === 400 || error.status === 404 || error.status === 403) && (errorBody.includes('not supported') || errorBody.includes('unknown model') || errorBody.includes('invalid model') || errorBody.includes('unregistered') || is403);
+      console.error(`Attempt ${i + 1} with ${currentModel} failed (Status: ${errorStatus}):`, errorBody);
+
+      const is429 = errorStatus === 429 || errorBody.includes('429') || errorBody.includes('quota') || errorBody.includes('resource_exhausted');
+      const is404 = errorStatus === 404 || errorBody.includes('404') || errorBody.includes('not found') || errorBody.includes('not supported') || errorBody.includes('unknown model');
+      const is403 = errorStatus === 403 || errorBody.includes('403') || errorBody.includes('permission') || errorBody.includes('unregistered') || errorBody.includes('access denied');
+      const isExpired = errorBody.includes('expired') || errorBody.includes('invalid') || errorBody.includes('bad key') || errorBody.includes('apikey');
       const isDailyLimit = (errorBody.includes('perday') || errorBody.includes('daily') || errorBody.includes('limit: 20')) && !errorBody.includes('rate');
-      const isModelNotAvailable = errorBody.includes('limit: 0') || errorBody.includes('not supported') || errorBody.includes('not found') || is404;
+      
+      // Model is considered unavailable if it's 404, 403, or 429 with limit 0
+      const isModelNotAvailable = is404 || is403 || errorBody.includes('limit: 0') || errorBody.includes('not supported') || errorBody.includes('not found') || errorBody.includes('unregistered');
       
       // If API key is expired or invalid, throw immediately as retries won't help
       if (isExpired && !errorBody.includes('model')) {
         const expiredError = new Error("Your Gemini API Key is invalid or expired. Please update it in Settings > Secrets (top right menu) in AI Studio.");
-        (expiredError as any).status = 400;
+        (expiredError as any).status = 401;
         throw expiredError;
       }
 
       // If model not found or restricted or unsupported or has a 0 limit, try next model in our list
-      if ((isModelNotAvailable || isUnsupported || is403) && modelIndex < MODELS_TO_TRY.length - 1) {
-        console.warn(`Model ${currentModel} unavailable/unsupported/restricted/unregistered or limit 0, trying fallback ${MODELS_TO_TRY[modelIndex + 1]}...`);
+      if (isModelNotAvailable && modelIndex < MODELS_TO_TRY.length - 1) {
+        console.warn(`Model ${currentModel} is unavailable or restricted. Trying fallback ${MODELS_TO_TRY[modelIndex + 1]}...`);
         modelIndex++;
-        i--; // Don't count as a retry attempt for the logic, just a model switch
+        i = -1; // Reset retry counter for the new model
         continue;
       }
 
-      // If quota exceeded for a specific model, try the next one unless it's a global daily limit
+      // If quota exceeded for a specific model (but not a daily limit), try the next one
       if (is429 && !isDailyLimit && modelIndex < MODELS_TO_TRY.length - 1) {
-        console.warn(`Quota limit on ${currentModel}, switching to ${MODELS_TO_TRY[modelIndex + 1]}...`);
+        console.warn(`Quota limit reached for ${currentModel}. Switching to ${MODELS_TO_TRY[modelIndex + 1]}...`);
         modelIndex++;
-        i--;
+        i = -1; // Reset retry counter for the new model
         continue;
       }
 
-      // If we are at the last model and it's a daily limit, throw special error
+      // If we are at the last model and it's a daily limit or overall quota, throw special error
       if (isDailyLimit || (is429 && modelIndex === MODELS_TO_TRY.length - 1)) {
         const quotaError = new Error("Daily free-tier quota reached. Please wait until tomorrow or provide your own API key in Settings > Secrets to increase limits.");
         (quotaError as any).status = 429;
         throw quotaError;
       }
 
-      // Standard retry with delay for transient errors (503, or 429 for the same model if not daily limit)
-      if (i < retries && (error.status === 503 || (is429 && !isDailyLimit))) {
-        const waitTime = is429 ? Math.max(delay * 4, 10000) : Math.max(delay * 2, 1000); 
-        console.warn(`Transient error on ${currentModel}, retrying in ${waitTime}ms...`);
+      // Standard retry with delay for transient errors (500s or network status 0)
+      if (i < retries && (errorStatus >= 500 || errorStatus === 0)) {
+        const waitTime = Math.max(delay * 2, 2000); 
+        console.warn(`Server error on ${currentModel}, retrying in ${waitTime}ms...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
         delay = waitTime;
         continue;
