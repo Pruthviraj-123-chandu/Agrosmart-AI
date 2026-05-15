@@ -38,10 +38,10 @@ const ai = new GoogleGenAI({
 
 const MODELS_TO_TRY = [
   "gemini-3-flash-preview",
-  "gemini-2.0-flash", // Keeping 2.0 flash as it's powerful, but fallback triggers if quota hit
   "gemini-flash-latest",
   "gemini-3.1-flash-lite",
-  "gemini-1.5-flash-8b"
+  "gemini-2.0-flash",
+  "gemini-1.5-flash-8b-latest"
 ];
 
 // Helper for retries and model fallback
@@ -68,12 +68,21 @@ async function generateWithRetry(fn: (model: string) => Promise<any>, retries = 
       const is429 = error.status === 429 || errorBody.includes('429') || errorBody.includes('quota') || errorBody.includes('resource_exhausted');
       const is404 = error.status === 404 || errorBody.includes('404') || errorBody.includes('not found') || errorBody.includes('not supported');
       const is403 = error.status === 403 || errorBody.includes('403') || errorBody.includes('permission') || errorBody.includes('unregistered');
+      const isExpired = errorBody.includes('expired') || errorBody.includes('invalid') || errorBody.includes('bad key');
       const isUnsupported = (error.status === 400 || error.status === 404 || error.status === 403) && (errorBody.includes('not supported') || errorBody.includes('unknown model') || errorBody.includes('invalid model') || errorBody.includes('unregistered') || is403);
-      const isDailyLimit = (errorBody.includes('perday') || errorBody.includes('daily') || errorBody.includes('limit: 0') || errorBody.includes('limit: 20')) && !errorBody.includes('rate');
+      const isDailyLimit = (errorBody.includes('perday') || errorBody.includes('daily') || errorBody.includes('limit: 20')) && !errorBody.includes('rate');
+      const isModelNotAvailable = errorBody.includes('limit: 0') || errorBody.includes('not supported') || errorBody.includes('not found') || is404;
       
-      // If model not found or restricted or unsupported, try next model in our list
-      if ((is404 || isUnsupported || is403) && modelIndex < MODELS_TO_TRY.length - 1) {
-        console.warn(`Model ${currentModel} unavailable/unsupported/restricted/unregistered, trying fallback ${MODELS_TO_TRY[modelIndex + 1]}...`);
+      // If API key is expired or invalid, throw immediately as retries won't help
+      if (isExpired && !errorBody.includes('model')) {
+        const expiredError = new Error("Your Gemini API Key is invalid or expired. Please update it in Settings > Secrets (top right menu) in AI Studio.");
+        (expiredError as any).status = 400;
+        throw expiredError;
+      }
+
+      // If model not found or restricted or unsupported or has a 0 limit, try next model in our list
+      if ((isModelNotAvailable || isUnsupported || is403) && modelIndex < MODELS_TO_TRY.length - 1) {
+        console.warn(`Model ${currentModel} unavailable/unsupported/restricted/unregistered or limit 0, trying fallback ${MODELS_TO_TRY[modelIndex + 1]}...`);
         modelIndex++;
         i--; // Don't count as a retry attempt for the logic, just a model switch
         continue;

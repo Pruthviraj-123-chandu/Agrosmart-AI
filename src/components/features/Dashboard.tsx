@@ -89,11 +89,19 @@ export function Dashboard({ user }: { user?: any }) {
         
         if (error.message?.includes('permissions policy') || error.code === 1) {
           statusMsg = "Access Denied";
-          detailedMsg = "Permissions policy blocked geolocation. Please allow location access or open the app in a new tab.";
+          detailedMsg = "Permissions policy blocked geolocation.";
           console.warn("Geolocation blocked by permissions policy. Ensure 'geolocation' is in metadata.json and user allowed access.");
+          
+          // Add a special state to show "Open in New Tab" link
+          setWeather(prev => ({ 
+            ...prev, 
+            condition: statusMsg,
+            city: "Blocked by Browser Policy"
+          }));
+          return;
         } else if (error.code === 3) {
           statusMsg = "Timeout";
-          detailedMsg = "Location request timed out. Please try refreshing.";
+          detailedMsg = "Location request timed out.";
         }
 
         setWeather(prev => ({ 
@@ -102,8 +110,12 @@ export function Dashboard({ user }: { user?: any }) {
           city: detailedMsg
         }));
         setLoadingLocation(false);
-      }, { timeout: 15000, enableHighAccuracy: false }); // Increased timeout and disabled high accuracy for better reliability
+      }, { timeout: 15000, enableHighAccuracy: false }); 
     }
+  };
+
+  const openAppInNewTab = () => {
+    window.open(window.location.href, '_blank');
   };
 
   React.useEffect(() => {
@@ -185,13 +197,54 @@ export function Dashboard({ user }: { user?: any }) {
                 </p>
                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" title="Live Update" />
               </div>
-              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 capitalize whitespace-nowrap">
+              <div className="flex items-center gap-2">
                 {loadingLocation ? (
-                  "Locating..."
+                   <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Locating...</p>
+                ) : weather.condition === 'Access Denied' ? (
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="text"
+                      placeholder="Enter City"
+                      className="text-[11px] bg-transparent border-b border-slate-300 outline-none w-24"
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                          const val = (e.target as HTMLInputElement).value;
+                          const apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY;
+                          if (val) {
+                            if (apiKey) {
+                              try {
+                                const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${val}&appid=${apiKey}&units=metric`);
+                                const data = await res.json();
+                                if (data.main) {
+                                  setWeather({ temp: Math.round(data.main.temp), city: data.name, condition: data.weather[0].main });
+                                } else {
+                                  alert("City not found. Please check the name.");
+                                }
+                              } catch (err) { 
+                                console.error(err); 
+                                alert("Failed to fetch weather. Check your connection.");
+                              }
+                            } else {
+                              setWeather(prev => ({ ...prev, city: val, condition: 'Manual' }));
+                            }
+                          }
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <span 
+                      onClick={(e) => { e.stopPropagation(); openAppInNewTab(); }}
+                      className="text-[9px] text-blue-500 hover:underline cursor-pointer"
+                    >
+                      (Fix)
+                    </span>
+                  </div>
                 ) : (
-                  `${weather.condition} • ${weather.city}`
+                  <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 capitalize whitespace-nowrap">
+                    {weather.condition} • {weather.city}
+                  </p>
                 )}
-              </p>
+              </div>
             </div>
           </div>
           

@@ -6,6 +6,23 @@ import { useTheme } from '../ThemeContext';
 
 export function LandingPage() {
   const { theme, toggleTheme } = useTheme();
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleSignIn = async () => {
+    try {
+      setError(null);
+      await signInWithGoogle();
+    } catch (err: any) {
+      console.error('Sign in error:', err);
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError('Sign-in window was closed. Please try again.');
+      } else if (err.code === 'auth/cancelled-by-user') {
+        setError('Sign-in was cancelled.');
+      } else {
+        setError('Failed to sign in with Google. Please check your connection.');
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#f0fdf4] dark:bg-slate-950 overflow-hidden relative transition-colors duration-300">
@@ -28,7 +45,7 @@ export function LandingPage() {
             {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
           <button 
-            onClick={signInWithGoogle}
+            onClick={handleSignIn}
             className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-full font-medium shadow-lg shadow-green-200 dark:shadow-none transition-all active:scale-95"
           >
             Sign In with Google
@@ -42,6 +59,16 @@ export function LandingPage() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
         >
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-2xl text-red-600 dark:text-red-400 text-sm font-medium flex items-center justify-between"
+            >
+              <span>{error}</span>
+              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">×</button>
+            </motion.div>
+          )}
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-slate-900/80 border border-green-100 dark:border-slate-800 rounded-full shadow-sm mb-6">
             <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
             <span className="text-sm font-medium text-green-800 dark:text-green-400 italic">Advanced Agriculture Support</span>
@@ -55,7 +82,7 @@ export function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <button 
-              onClick={signInWithGoogle}
+              onClick={handleSignIn}
               className="flex items-center justify-center gap-2 bg-green-700 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-green-800 transition-all shadow-xl shadow-green-100 group"
             >
               Get Started Now

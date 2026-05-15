@@ -314,30 +314,38 @@ export function CropPrediction() {
               <motion.div 
                 initial={{ opacity: 0, scale: 0.9 }} 
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-green-100 relative overflow-hidden"
+                className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-xl border border-green-100 dark:border-slate-800 relative overflow-hidden"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-green-50 rounded-bl-[4rem] -z-0" />
+                {/* Result Header Image */}
+                <div className="absolute top-0 right-0 w-64 h-64 -mr-16 -mt-16 opacity-10 dark:opacity-5 pointer-events-none">
+                   <img 
+                    src={`https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?q=80&w=2070&auto=format&fit=crop&query=${result.cropName},${result.imageKeywords?.[0] || ''}`}
+                    className="w-full h-full object-cover rounded-full rotate-12"
+                    alt=""
+                    referrerPolicy="no-referrer"
+                   />
+                </div>
                 
                 <div className="relative z-10 space-y-6">
                   {/* Result Header */}
                   <div className="flex items-center gap-4">
-                    <div className="p-4 bg-green-600 rounded-[2rem] shadow-lg shadow-green-100">
+                    <div className="p-4 bg-green-600 rounded-[2rem] shadow-lg shadow-green-100 dark:shadow-none">
                       <Sprout className="w-8 h-8 text-white" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-500 uppercase text-[10px] tracking-widest leading-none mb-1">{t('recommendedCrop')}</h3>
-                      <p className="text-3xl font-black text-slate-900 leading-none">{result.cropName}</p>
+                      <h3 className="font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-widest leading-none mb-1">{t('recommendedCrop')}</h3>
+                      <p className="text-3xl font-black text-slate-900 dark:text-white leading-none">{result.cropName}</p>
                     </div>
                     <div className="ml-auto">
-                       <div className="bg-green-50 px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-green-100">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
-                          <span className="text-[11px] font-black text-green-700 tracking-tight">{result.confidence}% {t('confidence')}</span>
+                       <div className="bg-green-50 dark:bg-green-950/30 px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-green-100 dark:border-green-900/30">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                          <span className="text-[11px] font-black text-green-700 dark:text-green-400 tracking-tight">{result.confidence}% {t('confidence')}</span>
                        </div>
                     </div>
                   </div>
 
-                  <div className="p-6 bg-green-50/50 rounded-3xl border border-green-100/50">
-                    <p className="text-sm text-slate-700 leading-relaxed italic text-center">
+                  <div className="p-6 bg-green-50/50 dark:bg-slate-800/50 rounded-3xl border border-green-100/50 dark:border-slate-700/50">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic text-center">
                       "{result.reason}"
                     </p>
                   </div>

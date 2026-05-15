@@ -75,6 +75,15 @@ export function Layout({ children, activeTab, setActiveTab, user }: LayoutProps)
               <span className="font-medium">{item.label}</span>
             </button>
           ))}
+          <div className="pt-4 mt-4 border-t border-green-100 dark:border-slate-800">
+            <button 
+              onClick={() => auth.signOut()}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all group"
+            >
+              <LogOut size={20} className="group-hover:translate-x-1 transition-transform" />
+              <span className="font-medium uppercase text-xs tracking-widest">{t('logout') || 'Log Out'}</span>
+            </button>
+          </div>
         </nav>
 
         <div className="p-4 border-t border-green-100 dark:border-slate-800 italic text-xs text-green-700 dark:text-green-500 text-center">

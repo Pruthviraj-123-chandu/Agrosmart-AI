@@ -40,6 +40,17 @@ export function ChatAssistant() {
     ]);
   };
 
+  const getErrorMessage = (error: any) => {
+    const msg = error.message?.toLowerCase() || '';
+    if (msg.includes('expired') || msg.includes('invalid') || msg.includes('bad key')) {
+      return "🔑 **API Key Issue**: Your Gemini API key is invalid or expired. Please update it in Settings > Secrets (top right menu) in AI Studio.";
+    }
+    if (error.status === 429 || msg.includes('quota') || msg.includes('exhausted')) {
+      return "⚠️ **AI Quota Exceeded**: I'm receiving too many requests. Please wait a minute and then try again.";
+    }
+    return error.message || "Something went wrong. Please check your connection or try a different query.";
+  };
+
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
@@ -54,19 +65,14 @@ export function ChatAssistant() {
     try {
       const response = await agriculturalChat(messages, userMessage, controller.signal);
       if (typeof response === 'object' && (response as any).error) {
-        const errorData = response as any;
-        if (errorData.code === 'QUOTA_EXCEEDED') {
-           setMessages(prev => [...prev, { role: 'model', content: "⚠️ **AI Quota Exceeded**: I'm receiving too many requests. Please wait a minute and then try asking again. Thank you for your patience!" }]);
-        } else {
-           setMessages(prev => [...prev, { role: 'model', content: errorData.error || "I'm sorry, I couldn't process that." }]);
-        }
+        setMessages(prev => [...prev, { role: 'model', content: getErrorMessage(response) }]);
       } else {
         setMessages(prev => [...prev, { role: 'model', content: response || "I'm sorry, I couldn't process that." }]);
       }
     } catch (error: any) {
       if (error.name === 'AbortError') return;
       console.error(error);
-      setMessages(prev => [...prev, { role: 'model', content: "Something went wrong. Please check your connection." }]);
+      setMessages(prev => [...prev, { role: 'model', content: getErrorMessage(error) }]);
     } finally {
       abortControllerRef.current = null;
       setLoading(false);
@@ -79,7 +85,7 @@ export function ChatAssistant() {
       const recognition = new SpeechRecognition();
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
-        setInput(transcript);
+        setInput(prev => prev ? `${prev} ${transcript}` : transcript);
       };
       recognition.start();
     } else {
