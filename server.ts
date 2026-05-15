@@ -8,7 +8,7 @@ import crypto from "crypto";
 
 dotenv.config();
 
-const app = express();
+export const app = express();
 const PORT = parseInt(process.env.PORT || '3000');
 
 // Cache setup to reduce API hits
@@ -453,4 +453,9 @@ async function startServer() {
   });
 }
 
-startServer();
+// Only start server automatically if this is the main module and not running on Vercel
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
